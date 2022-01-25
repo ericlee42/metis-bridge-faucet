@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: metisdb
+    restart: unless-stopped
+    stop_grace_period: 1m
+    expose:
+      - 3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=passwd
+    volumes:
+      - /data/metistools/mysql:/var/lib/mysql
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "5"
+
+  faucet:
+    image: metis-bridge-faucet
+    build: .
+    container_name: metis-bridge-faucet
+    restart: unless-stopped
+    stop_grace_period: 1m
+    volumes:
+      - $PWD/key.txt:/key.txt
+    command:
+      - -mysql=root:passwd@tcp(mysql:3306)/metis?parseTime=true
+      - -rpc=wss://stardust-ws.metis.io
+      - -height=545000
+      - -range=50000
+      - -key=/key.txt
+      - -minusd=1
+      - -faucet
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "5"
