@@ -27,7 +27,8 @@ func ReadPrvkey(keyPath string) (*ecdsa.PrivateKey, common.Address, error) {
 		return nil, common.Address{}, err
 	}
 
-	prvkey, err := crypto.HexToECDSA(strings.TrimSpace(string(data)))
+	rawkey := strings.TrimSpace(string(data))
+	prvkey, err := crypto.HexToECDSA(strings.TrimPrefix(rawkey, "0x"))
 	if err != nil {
 		return nil, common.Address{}, err
 	}
