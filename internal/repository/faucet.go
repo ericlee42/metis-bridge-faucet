@@ -48,11 +48,11 @@ func (m Metis) GetDepositTxStream(ctx context.Context, status DepositStatus) <-c
 	return stream
 }
 
-func (m Metis) DoesFirstDeposit(ctx context.Context, address string) (bool, error) {
-	const query = "SELECT COUNT(*) FROM deposits WHERE `to`=?;"
+func (m Metis) HasGotDrip(ctx context.Context, address string) (bool, error) {
+	const query = "SELECT COUNT(*) FROM `drips` WHERE `to`=?;"
 	var count int
 	if err := m.db.QueryRowContext(ctx, query, address).Scan(&count); err != nil {
-		return false, fmt.Errorf("DoesFirstDeposit: %w", err)
+		return false, fmt.Errorf("HasGotDrip: %w", err)
 	}
 	return count == 0, nil
 }

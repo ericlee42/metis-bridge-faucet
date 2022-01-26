@@ -11,7 +11,7 @@ CREATE TABLE `deposits` (
     `l2token` char(42) NOT NULL,
     `from` char(42) NOT NULL,
     `to` char(42) NOT NULL,
-    `amount` decimal(64, 20) NOT NULL,
+    `amount` decimal(64, 0) NOT NULL,
     `status` tinyint NOT NULL,
     `ctime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `mtime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -31,5 +31,6 @@ CREATE TABLE `drips`(
     `amount` decimal(64, 20) NOT NULL,
     `rawtx` blob NOT NULL,
     `ctime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_pid PRIMARY KEY (`pid`)
+    CONSTRAINT pk_pid PRIMARY KEY (`pid`),
+    INDEX idx_to (`to`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;

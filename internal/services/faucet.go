@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ericlee42/metis-bridge-faucet/internal/goabi/metisl2"
 	"github.com/ericlee42/metis-bridge-faucet/internal/repository"
 	"github.com/ericlee42/metis-bridge-faucet/internal/utils"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -113,11 +115,20 @@ func (s *Faucet) shouldTransfer(basectx context.Context, item *repository.Deposi
 		}
 	}
 
-	if rate*item.Amount < s.MinUSD {
+	l2token, err := metisl2.NewL2StandardERC20(common.HexToAddress(item.L2Token), s.Web3Client)
+	if err != nil {
+		return false, err
+	}
+
+	decimal, err := l2token.Decimals(&bind.CallOpts{Context: newctx})
+	if err != nil {
+		return false, err
+	}
+	if amount := item.Amount.Readable(int64(decimal)); rate*amount < s.MinUSD {
 		return false, nil
 	}
 
-	first, err := s.Repositroy.DoesFirstDeposit(newctx, item.To)
+	first, err := s.Repositroy.HasGotDrip(newctx, item.To)
 	if err != nil {
 		return false, err
 	}
@@ -192,6 +203,9 @@ func (s *Faucet) tryToCheckDrip(ctx context.Context) error {
 			return err
 		}
 		if !done {
+			var tx = new(types.Transaction)
+			_ = tx.UnmarshalBinary(item.Data.Rawtx)
+			_ = s.Web3Client.SendTransaction(ctx, tx)
 			continue
 		}
 		if err := s.Repositroy.UpdateDripStatus(ctx, item.Data.Id, repository.DepositStatusDone); err != nil {

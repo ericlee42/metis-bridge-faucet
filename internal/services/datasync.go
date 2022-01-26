@@ -11,6 +11,7 @@ import (
 	"github.com/ericlee42/metis-bridge-faucet/internal/goabi/metisl2"
 	"github.com/ericlee42/metis-bridge-faucet/internal/repository"
 	"github.com/ericlee42/metis-bridge-faucet/internal/utils"
+	"github.com/ericlee42/metis-bridge-faucet/internal/utils/bigint"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sirupsen/logrus"
@@ -86,20 +87,20 @@ func (s *DataSync) syncWithRange(basectx context.Context, startHeight, endHeight
 			L2Token: l2token,
 			From:    strings.ToLower(event.From.Hex()),
 			To:      strings.ToLower(event.To.Hex()),
-			Amount:  utils.ToEther(event.Amount),
+			Amount:  bigint.FromBigInt(event.Amount),
 			Status:  status,
 		}
 	}
 
 	header, err := s.Web3Client.HeaderByNumber(newctx, big.NewInt(int64(endHeight)))
 	if err != nil {
-		return fmt.Errorf("syncWithHeight: get tail header: %w", err)
+		return fmt.Errorf("syncWithRange: get tail header: %w", err)
 	}
 	var tail = &repository.Height{Number: endHeight, Blockhash: header.Hash().String()}
 
 	iter, err := s.Bridge.FilterDepositFinalized(&bind.FilterOpts{Context: newctx, Start: startHeight, End: &endHeight}, nil, nil, nil)
 	if err != nil {
-		return fmt.Errorf("syncWithHeight: filter deposit event: %w", err)
+		return fmt.Errorf("syncWithRange: filter deposit event: %w", err)
 	}
 	defer iter.Close()
 
@@ -109,11 +110,11 @@ func (s *DataSync) syncWithRange(basectx context.Context, startHeight, endHeight
 	}
 
 	if err := iter.Error(); err != nil {
-		return fmt.Errorf("syncWithHeight: filter deposit event: %w", err)
+		return fmt.Errorf("syncWithRange: filter deposit event: %w", err)
 	}
 
 	if err := s.Repositroy.SaveSyncedData(newctx, deposits, tail); err != nil {
-		return fmt.Errorf("syncWithHeight: %w", err)
+		return fmt.Errorf("syncWithRange: %w", err)
 	}
 
 	logrus.Infof("Done: NewDeposits %d BlockTime %s", len(deposits), time.Unix(int64(header.Time), 0))

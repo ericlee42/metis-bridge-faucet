@@ -1,6 +1,10 @@
 package repository
 
-import "time"
+import (
+	"time"
+
+	"github.com/ericlee42/metis-bridge-faucet/internal/utils/bigint"
+)
 
 type DepositStatus uint8
 
@@ -19,7 +23,7 @@ type Deposit struct {
 	L2Token   string        `db:"l2token"`
 	From      string        `db:"from"`
 	To        string        `db:"to"`
-	Amount    float64       `db:"amount"`
+	Amount    bigint.Int    `db:"amount"`
 	Status    DepositStatus `db:"status"`
 	CreatedAt time.Time     `db:"ctime"`
 	UpdatedAt time.Time     `db:"utime"`
