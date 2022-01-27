@@ -26,7 +26,7 @@ type Deposit struct {
 	Amount    bigint.Int    `db:"amount"`
 	Status    DepositStatus `db:"status"`
 	CreatedAt time.Time     `db:"ctime"`
-	UpdatedAt time.Time     `db:"utime"`
+	UpdatedAt time.Time     `db:"mtime"`
 }
 
 type Height struct {
