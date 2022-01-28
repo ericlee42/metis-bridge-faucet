@@ -90,7 +90,7 @@ func (s *Faucet) tryToSendDrip(ctx context.Context) error {
 		}
 		if tx != nil && drip != nil {
 			s.nonce += 1
-			logrus.Infof("Drip: send %f Metis to %s", drip.Amount, drip.To)
+			logrus.Infof("Drip: send %f Metis to %s [ Tx %s ]", drip.Amount, drip.To, drip.Txid)
 			if err := s.Web3Client.SendTransaction(ctx, tx); err != nil {
 				return err
 			}
@@ -208,6 +208,7 @@ func (s *Faucet) tryToCheckDrip(ctx context.Context) error {
 			_ = s.Web3Client.SendTransaction(ctx, tx)
 			continue
 		}
+		logrus.Infof("Updating deposit %d status [ Tx %s ]", item.Data.Id, item.Data.Txid)
 		if err := s.Repositroy.UpdateDripStatus(ctx, item.Data.Id, repository.DepositStatusDone); err != nil {
 			return err
 		}
