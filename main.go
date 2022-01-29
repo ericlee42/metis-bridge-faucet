@@ -151,6 +151,7 @@ func main() {
 				case <-time.After(time.Second * 5):
 					faucet.CheckDrips(egctx)
 				}
+				timer.Reset(time.Minute)
 			}
 		}
 	})
