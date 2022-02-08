@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ericlee42/metis-bridge-faucet/internal/goabi/metisl2"
@@ -59,9 +59,15 @@ func (s *Faucet) tryToSendDrip(ctx context.Context) error {
 			return item.Error
 		}
 
-		shouldTransfer, err := s.shouldTransfer(ctx, item.Data, recset)
+		var shouldTransfer = true
+		err := s.shouldTransfer(ctx, item.Data, recset)
 		if err != nil {
-			return err
+			if v, ok := err.(ErrorNoNeedToTransfer); ok {
+				logrus.Infof("Don't need to give a drip to %s: %s", item.Data.To, v.msg)
+				shouldTransfer = false
+			} else {
+				return err
+			}
 		}
 
 		var drip *repository.Drip
@@ -99,9 +105,13 @@ func (s *Faucet) tryToSendDrip(ctx context.Context) error {
 	return nil
 }
 
-func (s *Faucet) shouldTransfer(basectx context.Context, item *repository.Deposit, recset map[string]bool) (yes bool, err error) {
-	if recset[item.To] || item.Height < s.DripHeight || strings.EqualFold(item.L2Token, utils.MetisL2Address) {
-		return false, nil
+func (s *Faucet) shouldTransfer(basectx context.Context, item *repository.Deposit, recset map[string]bool) (err error) {
+	if recset[item.To] {
+		return ErrorNoNeedToTransfer{msg: "has transfered in current loop"}
+	}
+
+	if item.Height < s.DripHeight {
+		return ErrorNoNeedToTransfer{msg: "height < dripHeight"}
 	}
 
 	newctx, cancel := context.WithTimeout(basectx, time.Second*10)
@@ -111,52 +121,58 @@ func (s *Faucet) shouldTransfer(basectx context.Context, item *repository.Deposi
 	if !utils.IsStableL2Token(item.L2Token) {
 		rate, err = s.Uniswap.GetTokenPrice(newctx, item.L1Token)
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
 
 	l2token, err := metisl2.NewL2StandardERC20(common.HexToAddress(item.L2Token), s.Web3Client)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	decimal, err := l2token.Decimals(&bind.CallOpts{Context: newctx})
 	if err != nil {
-		return false, err
+		return err
 	}
 	if amount := item.Amount.Readable(int64(decimal)); rate*amount < s.MinUSD {
-		return false, nil
+		return ErrorNoNeedToTransfer{msg: fmt.Sprintf("Amount %f < Min %f", amount, s.MinUSD)}
 	}
 
 	first, err := s.Repositroy.HasGotDrip(newctx, item.To)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if !first {
-		return false, nil
+		return ErrorNoNeedToTransfer{msg: "transfered before"}
 	}
 
 	// should not have Metis balance
 	balance, err := s.Web3Client.BalanceAt(newctx, common.HexToAddress(item.To), nil)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if balance.Sign() > 0 {
-		return false, nil
+		return ErrorNoNeedToTransfer{msg: "metis balance > 0"}
 	}
 
 	// should be an EOA
 	code, err := s.Web3Client.CodeAt(newctx, common.HexToAddress(item.To), nil)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if len(code) > 0 {
-		return false, nil
+		return ErrorNoNeedToTransfer{msg: "not EOA"}
 	}
 
 	// should be a fresh address
 	nonce, err := s.Web3Client.NonceAt(newctx, common.HexToAddress(item.To), nil)
-	return nonce == 0, err
+	if err != nil {
+		return err
+	}
+	if nonce > 0 {
+		return ErrorNoNeedToTransfer{msg: "nonce > 0"}
+	}
+	return nil
 }
 
 func (s *Faucet) makeDripTx(basectx context.Context, toAddr string) (*types.Transaction, error) {
